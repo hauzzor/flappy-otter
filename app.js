@@ -18,6 +18,9 @@
   var el = function (id) { return document.getElementById(id); };
 
   var canvas = el("game");
+  var stage = el("stage");
+  var topbar = document.querySelector(".topbar");
+  var hud = document.querySelector(".hud");
   var overlayStart = el("overlay-start");
   var overlayOver = el("overlay-over");
   var startLead = overlayStart.querySelector(".overlay__lead");
@@ -40,7 +43,7 @@
   };
   var PAUSED_TEXT = {
     lead: "Paused",
-    note: "Press <kbd>SPACE</kbd> to carry on."
+    note: "Press <kbd>SPACE</kbd> or tap to carry on."
   };
 
   var game = new window.OtterGame.Game(canvas);
@@ -179,12 +182,62 @@
     }
   });
 
+  /* ---------- sizing ----------
+   * The canvas is scaled by a whole number so the pixel art stays crisp: at
+   * 3x every game pixel is exactly 3 screen pixels. The scale chosen is the
+   * largest that still leaves room for the header, readouts and footer, so
+   * the game is as big as it can be without pushing anything off screen. */
+
+  var STAGE_W = window.OtterGame.W;
+  var STAGE_H = window.OtterGame.H;
+
+  /* True when a block sits under the game in the same column rather than
+     beside it - the wide-screen layout moves the readouts to the right, where
+     they cost no vertical space. */
+  function stackedBelow(node) {
+    if (!node) return false;
+    var playLeft = stage.parentElement.getBoundingClientRect().left;
+    return Math.abs(node.getBoundingClientRect().left - playLeft) < 40;
+  }
+
+  function fitStage() {
+    var column = stage.parentElement
+      ? stage.parentElement.clientWidth
+      : window.innerWidth;
+
+    /* The stage's top edge does not depend on the stage's own size, so
+       measuring it here cannot feed back into this calculation. */
+    var top = stage.getBoundingClientRect().top;
+    var below = stackedBelow(hud) ? hud.offsetHeight + 12 : 0;
+    var available = window.innerHeight - top - below - 16;
+
+    var fit = Math.min(column / STAGE_W, available / STAGE_H);
+    var whole = Math.floor(fit);
+
+    /* Whole-pixel scaling keeps the art perfectly crisp, so prefer it - but
+       only when it does not waste much space. On a window where 1x would
+       leave a third of the width empty, filling the space looks better than
+       perfectly even pixels. */
+    var scale = (whole >= 1 && whole >= fit * 0.7) ? whole : fit;
+    if (!(scale > 0)) scale = 1;
+
+    canvas.style.width = Math.round(STAGE_W * scale) + "px";
+    canvas.style.height = Math.round(STAGE_H * scale) + "px";
+  }
+
   /* ---------- input ---------- */
 
   function typingInAField() {
     var active = document.activeElement;
     return !!active &&
       (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
+  }
+
+  /* A press that lands on a button or the name box is that control's
+     business, not a jump. */
+  function onAControl(target) {
+    return !!(target && typeof target.closest === "function" &&
+      target.closest("button, input, textarea, select, label, form, a"));
   }
 
   document.addEventListener("keydown", function (event) {
@@ -229,9 +282,11 @@
     game.release();
   });
 
-  /* touch and mouse: press and hold behaves exactly like the space bar */
+  /* Touch and mouse. Bound to the stage rather than the canvas, because the
+     start and game-over overlays sit on top of the canvas and would otherwise
+     swallow every tap. */
   function pointerDown(event) {
-    if (typingInAField()) return;
+    if (typingInAField() || onAControl(event.target)) return;
     event.preventDefault();
     if (game.state === "dead") {
       if (!awaitingName) restart();
@@ -242,12 +297,12 @@
   }
 
   function pointerUp(event) {
-    if (typingInAField()) return;
+    if (typingInAField() || onAControl(event.target)) return;
     event.preventDefault();
     game.release();
   }
 
-  canvas.addEventListener("pointerdown", pointerDown);
+  stage.addEventListener("pointerdown", pointerDown);
   window.addEventListener("pointerup", pointerUp);
   window.addEventListener("pointercancel", pointerUp);
 
@@ -255,8 +310,13 @@
 
   renderBoard([]);
   renderHud();
+  fitStage();
   game.render();
   game.start();
+
+  window.addEventListener("resize", fitStage);
+  window.addEventListener("orientationchange", fitStage);
+  window.addEventListener("load", fitStage);
 
   board.load().then(function () {
     renderBoard(board.entries);
@@ -267,6 +327,7 @@
     game: game,
     board: board,
     restart: restart,
+    fitStage: fitStage,
     formatWhen: formatWhen
   };
 })();

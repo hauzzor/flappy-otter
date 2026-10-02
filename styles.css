@@ -31,9 +31,31 @@ body {
 }
 
 .app {
-  max-width: 460px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  max-width: 1700px;
   margin: 0 auto;
-  padding: 12px 12px 28px;
+  padding: 10px 14px 18px;
+  min-height: 100vh;
+  align-content: start;
+}
+
+/* the play column holds the stage and nothing else, so the game gets the
+   full height of the page */
+.play {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* readouts and the top 10, stacked. On wide screens this whole block moves
+   beside the game instead of under it. */
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
 }
 
 /* ---------- top bar ---------- */
@@ -56,18 +78,30 @@ body {
 
 /* ---------- stage ---------- */
 
+/* The stage wraps the canvas exactly, so its border never eats into the
+   pixel grid. app.js sets an integer canvas size; the CSS below is the
+   fallback when scripting is unavailable. */
 .stage {
   position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
   border: 2px solid var(--line);
   background: #0b0c18;
   border-radius: 4px;
   overflow: hidden;
   box-shadow: 0 0 0 1px #0b0c18, 0 6px 0 -2px rgba(0, 0, 0, .5);
+  /* taps and holds on the game must never scroll or zoom the page */
+  touch-action: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #game {
   display: block;
-  width: 100%;
+  max-width: 100%;
   height: auto;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -324,6 +358,22 @@ kbd {
   margin-top: 12px;
   font-size: 9px;
   color: var(--muted);
+}
+
+/* ---------- wide screens: game on the left, top 10 alongside ---------- */
+
+@media (min-width: 1080px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    align-items: start;
+  }
+
+  .topbar { grid-column: 1 / -1; }
+  .play { grid-column: 1; grid-row: 2; }
+  .side { grid-column: 2; grid-row: 2; max-height: calc(100vh - 40px); }
+  .board { overflow: auto; }
+  .hint,
+  .foot { grid-column: 1 / -1; }
 }
 
 @media (max-width: 380px) {

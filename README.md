@@ -1,22 +1,25 @@
 # Flappy Otter
 
-A one-button platformer. An otter runs to the right by itself, and the only key is the space bar. Hold it longer and the otter jumps higher; the jump fires when you let go. Collect fish, jump the gaps, and don't eat the purple ones.
+A one-button platformer. An otter runs to the right by itself; your only control is to jump. Press the space bar — or tap — and the otter jumps at once. Keep holding and it climbs higher; let go early and the jump is cut short. Collect fish, jump the gaps, and don't eat the purple ones.
 
 ## How to play
 
-- **`SPACE`** (hold) — charge a jump. Release to jump. Hold longer, jump higher.
-- **`SPACE`** (tap) — a small hop, about 30px.
+- **`SPACE` / tap** — jump immediately. Hold to go higher.
 - **`P`** — pause.
 - **`M`** — toggle sound. Sound starts muted.
 - On a touch screen, press and hold anywhere on the game.
 
-Jump height runs from about 30px on a tap to about 128px at full charge, over 0.42 seconds of holding. A full-power jump carries roughly 87px forward at the starting speed, so a late jump clears a gap better than an early one: every pixel spent in the air over solid ground is a pixel not spent over the hole.
+The jump fires the moment the key goes down, not on release: press and the otter leaves the ground that instant. A quick tap is a low hop of about 30px; holding through the climb reaches the full 128px. Releasing part-way up cuts the remaining climb, which is the whole skill of the game. Releasing after the top of the arc does nothing, since there is no climb left to cut.
 
-## The three ways a run ends or stumbles
+A full-height jump carries roughly 87px forward at the starting speed, so jumping late beats jumping early: every pixel spent in the air over solid ground is a pixel not spent over the hole.
 
-- **Falling in a gap** ends the run. Gaps are 48–74px wide, and they only appear as the ground scrolls.
+## The three things that happen
+
+- **Falling in a gap** ends the run. Gaps are 48–74px wide.
 - **Eating a bad fish** does not end the run. The otter throws up every fish it has collected, the score drops back to zero, the screen shakes, and there is a brief moment where it can't pick anything up. The purple fish carry a small cross so they stay readable next to the good ones.
 - **Good fish** add one point each. The run also speeds up slightly as you collect.
+
+The otter falls only when its whole stance has left the platform, so it runs right off the edge rather than dropping while its body is still visibly on solid ground.
 
 ## Scores
 
@@ -31,6 +34,10 @@ The scoreboard keeps the **top 10**, not just the winner, sorted by score. Equal
 
 - Clearing site data or using private browsing wipes the board.
 - Two different devices keep two separate boards. They are not compared.
+
+## Screen size
+
+The game scales to fill the window, and on a wide screen the readouts and the top 10 move to the side so the game gets the full height. The canvas is scaled by whole numbers where that doesn't waste space (2×, 3×, 4×), which keeps every game pixel exactly square; on narrow windows where a whole-number scale would leave a large gap, it fills the width instead and accepts slightly uneven pixels.
 
 ## Run it locally
 
@@ -54,10 +61,15 @@ Every later push to `main` republishes automatically; GitHub runs its own Pages 
 
 ## Files
 
-`sprites.js` holds the hand-drawn pixel otter frames and builds the fish; the canvas is 320×200 logical pixels and CSS scales it up with nearest-neighbour, so everything is drawn at 1:1 and stays crisp. `game.js` is the loop, the charge-jump physics, collision and the terrain generator. `storage.js` and `leaderboard.js` handle the device board. `app.js` wires keys and DOM to the game. `config.js` holds the name length limit.
+`sprites.js` holds the hand-drawn pixel otter frames and builds the fish; the canvas is 320×200 logical pixels and CSS scales it up with nearest-neighbour. `game.js` is the loop, the jump physics, collision and the terrain generator. `storage.js` and `leaderboard.js` handle the device board. `app.js` wires keys, taps and DOM to the game, and works out the display size. `config.js` holds the name length limit.
 
 All scripts are plain `<script defer>` tags sharing globals, with no build step, so the page also works when opened straight from disk.
 
 ## Tuning
 
-The feel is set by a block of constants at the top of `game.js`: gravity, the minimum and maximum jump velocity, charge time, run speed, gap width, and how often bad fish appear (18%, never three in a row). Changing `BAD_CHANCE` or the gap range is the quickest way to make the game kinder or crueller.
+The feel is set by a block of constants at the top of `game.js`:
+
+- `JUMP_VELOCITY` (620) and `JUMP_CUT` (0.4) — how high the jump starts and how much is lost by releasing early. Raise the cut to make taps flatter, lower it to make them floatier.
+- `GRAVITY`, `COYOTE_TIME`, and `LAND_DEPTH` — the last caps how far below the surface a ledge can still catch a falling otter.
+- `BASE_SPEED` / `MAX_SPEED` / `SPEED_PER_FISH` — the run's pace.
+- The gap range (48–74px) and `BAD_CHANCE` (18%, never three in a row) — how cruel the level gets.

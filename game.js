@@ -15,13 +15,25 @@ window.OtterGame = (function () {
   var H = 200;
   var GROUND_Y = 168;              // top of the dirt
   var OTTER_X = 56;                // fixed on screen; the world scrolls past
+  /* The otter's stance, in sprite-local pixels: where the four feet actually
+     are in the 20px-wide frames. Ground support is judged on this span rather
+     than a single point, so the body stays on screen-correct ground. */
+  var FOOT_LEFT = 3;
+  var FOOT_RIGHT = 17;
   var TILE = 8;
 
   var GRAVITY = 1500;              // px/s^2
-  var JUMP_MIN = 300;              // px/s, tapped
-  var JUMP_MAX = 620;              // px/s, fully charged -> 128px of air
-  var CHARGE_TIME = 0.42;          // seconds from press to full charge
+  var JUMP_VELOCITY = 620;         // px/s at the instant of take-off -> ~128px
+  /* Releasing before the top of the arc multiplies the remaining upward
+     speed, which is what makes a short press a low hop and a long press a
+     full jump. The jump itself always starts on key-down. */
+  var JUMP_CUT = 0.4;
   var COYOTE_TIME = 0.09;          // grace after walking off a ledge
+  /* How far below the surface the otter may still be caught by a ledge. One
+     falling step covers at most ~5px, so 8 covers normal overshoot while
+     stopping an otter that has already dropped into a gap from drifting onto
+     the far lip and snapping back up to ground level. */
+  var LAND_DEPTH = 8;
 
   var BASE_SPEED = 105;            // px/s
   var MAX_SPEED = 190;
@@ -128,9 +140,7 @@ window.OtterGame = (function () {
     this.distanceAtLastFish = 0;
 
     this.otter = { y: GROUND_Y, vy: 0, onGround: true, coyote: 0, runPhase: 0 };
-    this.charging = false;
-    this.charge = 0;
-    this.chargeTime = 0;
+    this.holding = false;
 
     this.coins = [];
     this.particles = [];
@@ -199,6 +209,26 @@ window.OtterGame = (function () {
   /* the otter's feet, in world coordinates */
   Game.prototype.feetWorldX = function () {
     return this.travel + OTTER_X + 10;
+  };
+
+  /* The full stance in world coordinates. */
+  Game.prototype.footBounds = function () {
+    return {
+      left: this.travel + OTTER_X + FOOT_LEFT,
+      right: this.travel + OTTER_X + FOOT_RIGHT
+    };
+  };
+
+  /* True while any part of the stance is over solid ground, so the otter runs
+     right off the edge before it drops - if only a point were tested it would
+     fall while its body was still visibly standing on the platform. */
+  Game.prototype.groundedHere = function () {
+    var feet = this.footBounds();
+    for (var i = 0; i < this.ground.length; i++) {
+      var seg = this.ground[i];
+      if (seg.x0 <= feet.right && seg.x1 >= feet.left) return true;
+    }
+    return false;
   };
 
   Game.prototype.speedForScore = function () {
@@ -277,24 +307,25 @@ window.OtterGame = (function () {
 
   Game.prototype.press = function () {
     if (this.state === "dead") return;
-    this.charging = true;
-    this.chargeTime = 0;
-    this.charge = 0;
+    /* jump the instant the key goes down - there is no wind-up */
+    if (this.otter.onGround || this.otter.coyote > 0) {
+      this.holding = true;
+      this.jump();
+    }
   };
 
   Game.prototype.release = function () {
     if (this.state === "dead") return;
-    this.charging = false;
-    this.jump(this.charge);
-    this.charge = 0;
-    this.chargeTime = 0;
+    if (this.holding && this.otter.vy < 0) {
+      /* let go on the way up and the rest of the climb is cut short; hold to
+         the top and the jump reaches its full height */
+      this.otter.vy *= JUMP_CUT;
+    }
+    this.holding = false;
   };
 
-  Game.prototype.jump = function (power) {
-    var canLeave = this.otter.onGround || this.otter.coyote > 0;
-    if (!canLeave) return;
-    var t = clamp(power, 0, 1);
-    this.otter.vy = -(JUMP_MIN + (JUMP_MAX - JUMP_MIN) * t);
+  Game.prototype.jump = function () {
+    this.otter.vy = -JUMP_VELOCITY;
     this.otter.onGround = false;
     this.otter.coyote = 0;
     if (this.state === "ready") {
@@ -302,7 +333,7 @@ window.OtterGame = (function () {
       this.emit("start", {});
     }
     this.spawnDust(3, OTTER_X + 6, this.otter.y);
-    Audio.jump(t);
+    Audio.jump(0.7);
   };
 
   /* ---------- events ---------- */
@@ -333,9 +364,7 @@ window.OtterGame = (function () {
     this.otter.onGround = true;
     this.otter.coyote = 0;
     this.otter.runPhase = 0;
-    this.charging = false;
-    this.charge = 0;
-    this.chargeTime = 0;
+    this.holding = false;
     this.coins.length = 0;
     this.particles.length = 0;
     this.shake = 0;
@@ -353,14 +382,8 @@ window.OtterGame = (function () {
   Game.prototype.step = function (dt) {
     if (this.frozen) return;
     if (this.state === "ready") {
-      /* world is parked until the first jump, but the otter still breathes
-         and still charges, so holding SPACE before starting gives a full
-         height jump on release */
+      /* world is parked until the first jump; the otter just idles */
       this.otter.runPhase += dt * 2;
-      if (this.charging) {
-        this.chargeTime += dt;
-        this.charge = clamp(this.chargeTime / CHARGE_TIME, 0, 1);
-      }
       return;
     }
     if (this.state === "dead") {
@@ -372,13 +395,6 @@ window.OtterGame = (function () {
     }
 
     this.elapsed += dt;
-
-    /* charge: built on the ground only, spent on release. Letting it build
-       in mid-air would let a missed jump be topped up on the way down. */
-    if (this.charging && (this.otter.onGround || this.otter.coyote > 0)) {
-      this.chargeTime += dt;
-      this.charge = clamp(this.chargeTime / CHARGE_TIME, 0, 1);
-    }
 
     /* horizontal scroll */
     this.speed = this.speedForScore();
@@ -394,18 +410,19 @@ window.OtterGame = (function () {
     if (this.otter.onGround) this.otter.coyote = COYOTE_TIME;
     else this.otter.coyote = Math.max(0, this.otter.coyote - dt);
 
-    var solid = this.solidAt(this.feetWorldX());
+    var supported = this.groundedHere();
+    var atSurface = this.otter.y >= GROUND_Y &&
+      this.otter.y - GROUND_Y <= LAND_DEPTH;
 
-    if (solid && this.otter.y >= GROUND_Y && this.otter.vy >= 0) {
+    if (supported && atSurface && this.otter.vy >= 0) {
       if (!this.otter.onGround) {
         this.spawnDust(4, OTTER_X + 8, GROUND_Y);
-        this.otter.y = GROUND_Y;
       }
       this.otter.y = GROUND_Y;
       this.otter.vy = 0;
       this.otter.onGround = true;
     } else {
-      /* no floor here: keep falling so the otter drops into the gap */
+      /* nothing under the stance, or too far below to be caught: keep falling */
       this.otter.onGround = false;
     }
 
@@ -499,7 +516,7 @@ window.OtterGame = (function () {
     this.drawCoins();
     this.drawOtter();
     this.drawParticles();
-    this.drawCharge();
+    this.drawLift();
 
     ctx.restore();
   };
@@ -646,17 +663,20 @@ window.OtterGame = (function () {
     }
   };
 
-  /* the charge bar, drawn only while the key is down */
-  Game.prototype.drawCharge = function () {
-    if (!this.charging) return;
+  /* While the key is down and the otter is still climbing, a short bar drains
+     to show the remaining boost: let go now and the jump stops climbing. It
+     is the only feedback that holding is doing anything. */
+  Game.prototype.drawLift = function () {
+    if (!this.holding || this.otter.onGround || this.otter.vy >= 0) return;
     var ctx = this.ctx;
+    var frac = clamp(-this.otter.vy / JUMP_VELOCITY, 0, 1);
     var w = 16;
     var x = Math.round(OTTER_X + 2);
     var y = Math.round(this.otter.y - 22);
     ctx.fillStyle = "#1b1d38";
     ctx.fillRect(x - 1, y - 1, w + 2, 4);
-    ctx.fillStyle = this.charge >= 1 ? "#f2b134" : "#9fd0ea";
-    ctx.fillRect(x, y, Math.round(w * this.charge), 2);
+    ctx.fillStyle = frac > 0.35 ? "#9fd0ea" : "#f2b134";
+    ctx.fillRect(x, y, Math.max(1, Math.round(w * frac)), 2);
   };
 
   /* ---------- loop ---------- */
@@ -714,10 +734,11 @@ window.OtterGame = (function () {
     H: H,
     GROUND_Y: GROUND_Y,
     OTTER_X: OTTER_X,
+    FOOT_LEFT: FOOT_LEFT,
+    FOOT_RIGHT: FOOT_RIGHT,
     GRAVITY: GRAVITY,
-    JUMP_MIN: JUMP_MIN,
-    JUMP_MAX: JUMP_MAX,
-    CHARGE_TIME: CHARGE_TIME,
+    JUMP_VELOCITY: JUMP_VELOCITY,
+    JUMP_CUT: JUMP_CUT,
     BASE_SPEED: BASE_SPEED,
     MAX_SPEED: MAX_SPEED,
     COYOTE_TIME: COYOTE_TIME,
