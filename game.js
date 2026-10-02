@@ -15,11 +15,6 @@ window.OtterGame = (function () {
   var H = 200;
   var GROUND_Y = 168;              // top of the dirt
   var OTTER_X = 56;                // fixed on screen; the world scrolls past
-  /* The otter's stance, in sprite-local pixels: where the four feet actually
-     are in the 20px-wide frames. Ground support is judged on this span rather
-     than a single point, so the body stays on screen-correct ground. */
-  var FOOT_LEFT = 3;
-  var FOOT_RIGHT = 17;
   var TILE = 8;
 
   var GRAVITY = 1500;              // px/s^2
@@ -209,30 +204,24 @@ window.OtterGame = (function () {
   /* The otter is drawn at screen OTTER_X, and everything on screen is placed
      at `world - travel + OTTER_X`. Solving that for the sprite's left edge
      gives world = travel, so a pixel at sprite-local offset k sits at world
-     `travel + k`. The stance below must use that mapping - adding OTTER_X
-     again would test a spot 56px to the right of the drawn otter. */
+     `travel + k`. Adding OTTER_X again here would test a spot 56px to the
+     right of the drawn otter, which made it fall well before the visible
+     edge of the floor. */
 
-  /* the middle of the stance, in world coordinates */
+  /* the otter's horizontal position, in world coordinates */
   Game.prototype.feetWorldX = function () {
-    return this.travel + 10;
+    return this.travel + 10;             /* sprite-local centre of the 20px frame */
   };
 
-  /* The full stance in world coordinates. */
-  Game.prototype.footBounds = function () {
-    return {
-      left: this.travel + FOOT_LEFT,
-      right: this.travel + FOOT_RIGHT
-    };
-  };
-
-  /* True while any part of the stance is over solid ground, so the otter runs
-     right off the edge before it drops - if only a point were tested it would
-     fall while its body was still visibly standing on the platform. */
+  /* The otter is supported while its horizontal position is over solid
+     ground, and drops the moment that position is over a gap. Judging a
+     single point is what makes the fall land exactly on the visible edge of
+     the floor; judging the whole sprite lets it run out over the hole first. */
   Game.prototype.groundedHere = function () {
-    var feet = this.footBounds();
+    var x = this.feetWorldX();
     for (var i = 0; i < this.ground.length; i++) {
       var seg = this.ground[i];
-      if (seg.x0 <= feet.right && seg.x1 >= feet.left) return true;
+      if (x >= seg.x0 && x <= seg.x1) return true;
     }
     return false;
   };
@@ -740,8 +729,6 @@ window.OtterGame = (function () {
     H: H,
     GROUND_Y: GROUND_Y,
     OTTER_X: OTTER_X,
-    FOOT_LEFT: FOOT_LEFT,
-    FOOT_RIGHT: FOOT_RIGHT,
     GRAVITY: GRAVITY,
     JUMP_VELOCITY: JUMP_VELOCITY,
     JUMP_CUT: JUMP_CUT,

@@ -19,7 +19,7 @@ A full-height jump carries roughly 87px forward at the starting speed, so jumpin
 - **Eating a bad fish** does not end the run. The otter throws up every fish it has collected, the score drops back to zero, the screen shakes, and there is a brief moment where it can't pick anything up. The purple fish carry a small cross so they stay readable next to the good ones.
 - **Good fish** add one point each. The run also speeds up slightly as you collect.
 
-The otter falls only when its whole stance has left the platform, so it runs right off the edge rather than dropping while its body is still visibly on solid ground.
+The otter is supported while its horizontal position is over solid ground, and drops the moment that position is over a gap — so it falls exactly on the visible edge of the floor, not early and not after running out over the hole.
 
 ## Scores
 
