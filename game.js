@@ -687,19 +687,25 @@ window.OtterGame = (function () {
       var cx = sx + halfW;                   /* centre, always a whole pixel */
       var canopyH = Math.max(5, Math.round(tree.h * 0.7));
 
-      /* a fir: one row per scanline, a dark edge with green inside */
+      /* A fir, drawn dark on purpose. The hills behind are a mid green, so a
+         mid-green tree is invisible: the canopy is one deep green with only a
+         thin lit edge, which reads as a foreground silhouette. */
       for (var row = 0; row < canopyH; row++) {
         var y = top + row;
         var half = Math.max(1, Math.round((row + 1) / canopyH * halfW));
-        ctx.fillStyle = "#16301b";
+        ctx.fillStyle = "#0b200f";
         ctx.fillRect(cx - half - 1, y, half * 2 + 2, 1);
-        ctx.fillStyle = (row % 3 === 0) ? "#3f8a45" : "#2c6b35";
+        ctx.fillStyle = "#1d5226";
         ctx.fillRect(cx - half, y, half * 2, 1);
+        if (row % 3 === 0 && half > 1) {
+          ctx.fillStyle = "#2f7439";
+          ctx.fillRect(cx - half, y, 2, 1);
+        }
       }
 
       /* trunk */
       var trunkTop = top + canopyH;
-      ctx.fillStyle = "#3a2413";
+      ctx.fillStyle = "#2a1a0d";
       ctx.fillRect(cx - 2, trunkTop, 5, GROUND_Y - trunkTop);
       ctx.fillStyle = "#6b4423";
       ctx.fillRect(cx - 1, trunkTop, 3, GROUND_Y - trunkTop);
