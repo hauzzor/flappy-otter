@@ -206,16 +206,22 @@ window.OtterGame = (function () {
     return false;
   };
 
-  /* the otter's feet, in world coordinates */
+  /* The otter is drawn at screen OTTER_X, and everything on screen is placed
+     at `world - travel + OTTER_X`. Solving that for the sprite's left edge
+     gives world = travel, so a pixel at sprite-local offset k sits at world
+     `travel + k`. The stance below must use that mapping - adding OTTER_X
+     again would test a spot 56px to the right of the drawn otter. */
+
+  /* the middle of the stance, in world coordinates */
   Game.prototype.feetWorldX = function () {
-    return this.travel + OTTER_X + 10;
+    return this.travel + 10;
   };
 
   /* The full stance in world coordinates. */
   Game.prototype.footBounds = function () {
     return {
-      left: this.travel + OTTER_X + FOOT_LEFT,
-      right: this.travel + OTTER_X + FOOT_RIGHT
+      left: this.travel + FOOT_LEFT,
+      right: this.travel + FOOT_RIGHT
     };
   };
 
