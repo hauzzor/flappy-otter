@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flappy Otter</title>
+<meta name="description" content="An otter auto-runs, you hold space to jump. Collect fish, dodge the bad ones, and keep the top 10.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%232b2d5c'/><rect x='4' y='5' width='8' height='6' fill='%239a6b3f'/><rect x='9' y='6' width='2' height='2' fill='%231b1b1b'/></svg>">
+<link rel="stylesheet" href="./styles.css">
+<script>
+  window.showBootError = function (message) {
+    var el = document.getElementById('boot-error');
+    if (!el) return;
+    el.hidden = false;
+    el.textContent = message;
+  };
+  window.addEventListener('error', function (event) {
+    if (event && event.message) window.showBootError('Error: ' + event.message);
+  });
+</script>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <h1 class="topbar__title">Flappy Otter</h1>
+  </header>
+
+  <section class="stage">
+    <canvas id="game" width="320" height="200" aria-label="Otter running and jumping through gaps to collect fish"></canvas>
+
+    <div class="overlay" id="overlay-start" data-open="true">
+      <p class="overlay__lead">Hold <kbd>SPACE</kbd> longer to jump higher.</p>
+      <p class="overlay__note">Auto-runs right. The gaps and the purple fish will not wait.</p>
+    </div>
+
+    <div class="overlay" id="overlay-over" data-open="false">
+      <h2 class="overlay__title">Washed up</h2>
+      <p class="overlay__lead">You collected <strong id="final-score">0</strong> fish.</p>
+
+      <p class="newbest" id="new-best" data-open="false">New all-time best</p>
+
+      <form class="nameform" id="name-form" data-open="false" autocomplete="off">
+        <label class="nameform__label" for="player-name">Name for the scoreboard</label>
+        <div class="nameform__row">
+          <input class="nameform__input" id="player-name" maxlength="14" placeholder="Otter" spellcheck="false">
+          <button class="btn btn--primary" type="submit">Save</button>
+        </div>
+        <p class="nameform__hint">Up to 14 characters. The top 10 is saved in this browser on this device.</p>
+      </form>
+
+      <div class="overlay__actions">
+        <button class="btn btn--primary" id="btn-retry" type="button">Run again <kbd>SPACE</kbd></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="hud">
+    <div class="hud__item">
+      <span class="hud__label">Fish this run</span>
+      <b class="hud__value" id="score">0</b>
+    </div>
+    <div class="hud__item">
+      <span class="hud__label">Best ever</span>
+      <b class="hud__value" id="best">0</b>
+    </div>
+    <div class="hud__item hud__item--wide">
+      <span class="hud__label">Best set</span>
+      <b class="hud__value hud__value--small" id="best-date">&mdash;</b>
+    </div>
+  </section>
+
+  <section class="board">
+    <div class="board__head">
+      <h2 class="board__title">Top 10</h2>
+      <span class="board__meta" id="board-meta"></span>
+    </div>
+    <ol class="board__list" id="board-list"></ol>
+    <p class="board__empty" id="board-empty">No runs recorded yet. Collect some fish.</p>
+  </section>
+
+  <p class="hint" id="boot-error" hidden></p>
+
+  <footer class="foot">
+    <span><kbd>SPACE</kbd> jump (hold for height)</span>
+    <span><kbd>P</kbd> pause</span>
+    <span><kbd>M</kbd> sound</span>
+  </footer>
+
+</div>
+
+<script defer src="./config.js"></script>
+<script defer src="./sprites.js"></script>
+<script defer src="./storage.js"></script>
+<script defer src="./leaderboard.js"></script>
+<script defer src="./game.js"></script>
+<script defer src="./app.js"></script>
+</body>
+</html>

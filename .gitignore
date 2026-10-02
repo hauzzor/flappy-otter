@@ -1,0 +1,8 @@
+# local test scaffolding, regenerated on demand
+_harness.js
+_verify.html
+
+# editor / OS noise
+Thumbs.db
+.DS_Store
+desktop.ini
