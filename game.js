@@ -41,6 +41,18 @@ window.OtterGame = (function () {
   var BAD_CHANCE = 0.18;           // spec: bad fish are the occasional one
   var BAD_REPEAT_LIMIT = 2;        // never three purple fish in a row
 
+  /* Trees. The otter's feet have to clear the top of the trunk's foliage, so
+     a tree of height h needs a jump of at least h. A tap reaches ~28px, so
+     the short ones can be hopped and the tall ones need the key held. */
+  var TREE_W = 12;                 // width of a tree, for collision
+  var TREE_MIN_H = 16;             // shortest tree, in px above the ground
+  var TREE_MAX_H = 28;             // tallest
+  var TREE_GAP_MIN = 210;          // distance between trees
+  var TREE_GAP_MAX = 380;
+  var TREE_RUNWAY = 64;            // clear ground needed before a tree to jump from
+  var TREE_AHEAD = 420;            // generate this far past the right edge
+  var FIRST_TREE_X = 480;          // give the player a moment before the first one
+
   var VOMIT_STAGGER = 0.6;         // seconds of no coin hits after spitting
   var MAX_SPIT_FISH = 26;
   var DUST_EVERY = 0.16;           // seconds between running dust puffs
@@ -138,6 +150,7 @@ window.OtterGame = (function () {
     this.holding = false;
 
     this.coins = [];
+    this.trees = [];
     this.particles = [];
     this.shake = 0;
     this.stagger = 0;
@@ -243,6 +256,51 @@ window.OtterGame = (function () {
     while (this.coins.length && this.coins[0].x < this.travel - 120) {
       this.coins.shift();
     }
+  };
+
+  /* ---------- trees ---------- */
+
+  /* True when the whole span sits on one piece of ground, i.e. there is no
+     gap anywhere in it. */
+  Game.prototype.solidBetween = function (from, to) {
+    for (var i = 0; i < this.ground.length; i++) {
+      var seg = this.ground[i];
+      if (from >= seg.x0 && to <= seg.x1) return true;
+    }
+    return false;
+  };
+
+  /* A tree needs solid ground under it *and* a clear run-up in front of it,
+     so one is never planted right on the far lip of a gap where there is no
+     room to jump. Candidates that fail are shuffled forward. */
+  Game.prototype.extendTrees = function () {
+    while (this.nextTreeX < this.travel + W + TREE_AHEAD) {
+      var x = this.nextTreeX;
+      if (this.solidBetween(x - TREE_RUNWAY, x + TREE_W + 6)) {
+        var h = TREE_MIN_H + this.rand() * (TREE_MAX_H - TREE_MIN_H);
+        this.trees.push({ x: x, h: h });
+        this.nextTreeX = x + TREE_GAP_MIN + this.rand() * (TREE_GAP_MAX - TREE_GAP_MIN);
+      } else {
+        this.nextTreeX = x + 20;
+      }
+    }
+    while (this.trees.length && this.trees[0].x + TREE_W < this.travel - 120) {
+      this.trees.shift();
+    }
+  };
+
+  /* Deadly, unlike a bad fish: the otter's feet are below the top of the
+     tree it has reached. Clear the top and it passes safely. */
+  Game.prototype.hitsTree = function () {
+    var box = this.hitBox();
+    var feet = box.y + box.h;
+    for (var i = 0; i < this.trees.length; i++) {
+      var tree = this.trees[i];
+      var sx = tree.x - this.travel + OTTER_X;
+      if (sx + TREE_W < box.x || sx > box.x + box.w) continue;
+      if (feet > GROUND_Y - tree.h) return true;
+    }
+    return false;
   };
 
   /* ---------- otter ---------- */
@@ -361,6 +419,7 @@ window.OtterGame = (function () {
     this.otter.runPhase = 0;
     this.holding = false;
     this.coins.length = 0;
+    this.trees.length = 0;
     this.particles.length = 0;
     this.shake = 0;
     this.stagger = 0;
@@ -369,9 +428,11 @@ window.OtterGame = (function () {
     this.elapsed = 0;
     this.nextCoinX = 260;
     this.nextCoinBad = false;
+    this.nextTreeX = FIRST_TREE_X;
     this.buildGround();
     this.extendGround();
     this.extendCoins();
+    this.extendTrees();
   };
 
   Game.prototype.step = function (dt) {
@@ -397,6 +458,7 @@ window.OtterGame = (function () {
 
     this.extendGround();
     this.extendCoins();
+    this.extendTrees();
 
     /* gravity */
     this.otter.vy += GRAVITY * dt;
@@ -428,6 +490,12 @@ window.OtterGame = (function () {
     }
 
     this.collectCoins();
+
+    /* a tree trunk is fatal, unlike a bad fish */
+    if (this.hitsTree()) {
+      this.die();
+      return;
+    }
 
     /* running dust */
     if (this.otter.onGround) {
@@ -508,6 +576,7 @@ window.OtterGame = (function () {
     ctx.translate(shakeX, shakeY);
 
     this.drawGround();
+    this.drawTrees();
     this.drawCoins();
     this.drawOtter();
     this.drawParticles();
@@ -602,6 +671,38 @@ window.OtterGame = (function () {
       ctx.fillRect(left, GROUND_Y, width, 4);
       ctx.fillStyle = GRASS_LIGHT;
       ctx.fillRect(left, GROUND_Y, width, 1);
+    }
+  };
+
+  Game.prototype.drawTrees = function () {
+    var ctx = this.ctx;
+    var halfW = TREE_W / 2;
+
+    for (var i = 0; i < this.trees.length; i++) {
+      var tree = this.trees[i];
+      var sx = Math.round(tree.x - this.travel + OTTER_X);
+      if (sx < -TREE_W - 6 || sx > W + 6) continue;
+
+      var top = Math.round(GROUND_Y - tree.h);
+      var cx = sx + halfW;                   /* centre, always a whole pixel */
+      var canopyH = Math.max(5, Math.round(tree.h * 0.7));
+
+      /* a fir: one row per scanline, a dark edge with green inside */
+      for (var row = 0; row < canopyH; row++) {
+        var y = top + row;
+        var half = Math.max(1, Math.round((row + 1) / canopyH * halfW));
+        ctx.fillStyle = "#16301b";
+        ctx.fillRect(cx - half - 1, y, half * 2 + 2, 1);
+        ctx.fillStyle = (row % 3 === 0) ? "#3f8a45" : "#2c6b35";
+        ctx.fillRect(cx - half, y, half * 2, 1);
+      }
+
+      /* trunk */
+      var trunkTop = top + canopyH;
+      ctx.fillStyle = "#3a2413";
+      ctx.fillRect(cx - 2, trunkTop, 5, GROUND_Y - trunkTop);
+      ctx.fillStyle = "#6b4423";
+      ctx.fillRect(cx - 1, trunkTop, 3, GROUND_Y - trunkTop);
     }
   };
 
@@ -739,6 +840,11 @@ window.OtterGame = (function () {
     COIN_MAX: COIN_MAX,
     BAD_CHANCE: BAD_CHANCE,
     GAP_MAX: 74,
+    TREE_W: TREE_W,
+    TREE_MIN_H: TREE_MIN_H,
+    TREE_MAX_H: TREE_MAX_H,
+    TREE_GAP_MIN: TREE_GAP_MIN,
+    TREE_RUNWAY: TREE_RUNWAY,
     VOMIT_STAGGER: VOMIT_STAGGER,
     MAX_SPIT_FISH: MAX_SPIT_FISH,
     STEP: STEP,

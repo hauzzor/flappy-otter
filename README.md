@@ -1,6 +1,6 @@
 # Flappy Otter
 
-A one-button platformer. An otter runs to the right by itself; your only control is to jump. Press the space bar — or tap — and the otter jumps at once. Keep holding and it climbs higher; let go early and the jump is cut short. Collect fish, jump the gaps, and don't eat the purple ones.
+A one-button platformer. An otter runs to the right by itself; your only control is to jump. Press the space bar — or tap — and the otter jumps at once. Keep holding and it climbs higher; let go early and the jump is cut short. Collect fish, clear the gaps and the trees, and don't eat the purple ones.
 
 ## How to play
 
@@ -13,13 +13,16 @@ The jump fires the moment the key goes down, not on release: press and the otter
 
 A full-height jump carries roughly 87px forward at the starting speed, so jumping late beats jumping early: every pixel spent in the air over solid ground is a pixel not spent over the hole.
 
-## The three things that happen
+## The four things that happen
 
 - **Falling in a gap** ends the run. Gaps are 48–74px wide.
+- **Running into a tree** ends the run. Trees stand on the ground and are 16–28px tall, so short ones can be hopped but tall ones need the key held. Your feet have to clear the top; clipping the trunk is fatal, so this is a harder hazard than a bad fish.
 - **Eating a bad fish** does not end the run. The otter throws up every fish it has collected, the score drops back to zero, the screen shakes, and there is a brief moment where it can't pick anything up. The purple fish carry a small cross so they stay readable next to the good ones.
 - **Good fish** add one point each. The run also speeds up slightly as you collect.
 
 The otter is supported while its horizontal position is over solid ground, and drops the moment that position is over a gap — so it falls exactly on the visible edge of the floor, not early and not after running out over the hole.
+
+Trees are only ever planted on unbroken ground, with a clear run-up in front of them, so you are never asked to jump one from the far lip of a gap.
 
 ## Scores
 
@@ -73,3 +76,4 @@ The feel is set by a block of constants at the top of `game.js`:
 - `GRAVITY`, `COYOTE_TIME`, and `LAND_DEPTH` — the last caps how far below the surface a ledge can still catch a falling otter.
 - `BASE_SPEED` / `MAX_SPEED` / `SPEED_PER_FISH` — the run's pace.
 - The gap range (48–74px) and `BAD_CHANCE` (18%, never three in a row) — how cruel the level gets.
+- The tree span `TREE_MIN_H` (16) to `TREE_MAX_H` (28), how far apart they are, and `TREE_RUNWAY` (64px) — the clear ground guaranteed in front of each one so there is always room to take off.
